@@ -1,0 +1,52 @@
+use std::str::FromStr;
+use crate::ast::{Expr, BinOpcode};
+// use lalrpop_util::ErrorRecovery;
+
+use super::CalculatorError;
+
+grammar;
+
+extern {
+    type Error = CalculatorError;
+}
+
+// 공백 제거
+// WHITESPACE = r"[ \t\n]*";
+
+pub Expr: Box<Expr> = Tier<ExprOp, Factor>;
+Factor: Box<Expr> = Tier<FactorOp, Power>;
+Power: Box<Expr> = Tier<PowerOp, Term>;
+
+Tier<BinOp, NextTier>: Box<Expr> = {
+    Tier<BinOp, NextTier> BinOp NextTier => Box::new(Expr::BinOp(<>)),
+    NextTier,
+};
+
+ExprOp: BinOpcode = {
+    "+" => BinOpcode::Add,
+    "-" => BinOpcode::Sub,
+};
+
+FactorOp: BinOpcode = {
+    "*" => BinOpcode::Mul,
+    "/" => BinOpcode::Div,
+};
+
+PowerOp: BinOpcode = {
+    "^" => BinOpcode::Pow,
+}
+
+Term: Box<Expr> = {
+    Num => match <> {
+        Ok(num) => Box::new(Expr::Number(num)),
+        Err(_) => Box::new(Expr::Error),
+    },
+    "(" <Expr> ")",
+};
+
+Num: Result<i32, CalculatorError> = {
+    r"[0-9]+" => match i32::from_str(<>){
+        Ok(num) => Ok(num),
+        Err(_) => Err(CalculatorError::InputTooBig),
+    }
+};
